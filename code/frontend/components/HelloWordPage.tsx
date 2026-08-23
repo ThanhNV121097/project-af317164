@@ -4,10 +4,6 @@ import { useEffect, useState } from "react";
 
 import styles from "./HelloWordPage.module.css";
 
-type GreetingResponse = {
-  text?: string;
-};
-
 type ViewState =
   | { status: "loading" }
   | { status: "loaded"; text: string }
@@ -21,17 +17,20 @@ export default function HelloWordPage() {
     const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
     fetch(`${apiBase}/v1/greeting`)
-      .then((response) => {
+      .then(async (response) => {
         if (!response.ok) {
           throw new Error("bad response");
         }
-        return response.json() as Promise<GreetingResponse>;
-      })
-      .then((response) => {
-        if (!active) return;
 
-        const text = response.text?.trim() ?? "";
-        setState(text ? { status: "loaded", text } : { status: "error" });
+        const data = (await response.json()) as { text?: unknown };
+        const text = typeof data.text === "string" ? data.text.trim() : "";
+        if (!text) {
+          throw new Error("missing text");
+        }
+
+        if (active) {
+          setState({ status: "loaded", text });
+        }
       })
       .catch(() => {
         if (active) setState({ status: "error" });
