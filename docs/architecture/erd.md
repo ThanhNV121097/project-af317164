@@ -1,44 +1,45 @@
 # ERD — hello-word-6
 
-## Entities
+## Scope
 
-```mermaid
-erDiagram
-  greetings {
-    integer id PK
-    text text
-    timestamptz created_at
-    timestamptz updated_at
-  }
-```
+Database stores one greeting row used by home page. No users, no audit trail, no editing workflow.
 
 ## Tables
 
+### `schema_migrations`
+
+Tracks backend-applied SQL migrations.
+
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| `version` | `text` | primary key | Migration filename without suffix |
+| `applied_at` | `timestamptz` | not null default `now()` | Application time |
+
 ### `greetings`
 
-Single-row table that stores visible home-page greeting.
+Stores visible greeting text.
 
-| Column | Type | Constraints | Purpose |
+| Column | Type | Constraints | Notes |
 |---|---|---|---|
-| `id` | `integer` | Primary key, `CHECK (id = 1)` | Enforces one canonical greeting row. |
-| `text` | `text` | `NOT NULL`, `CHECK (length(text) > 0)` | Exact text rendered by frontend. |
-| `created_at` | `timestamptz` | `NOT NULL DEFAULT now()` | Row creation time. |
-| `updated_at` | `timestamptz` | `NOT NULL DEFAULT now()` | Last update time. |
-
-## Seed data
-
-Migration inserts one row:
-
-| `id` | `text` |
-|---:|---|
-| `1` | `Hello Word` |
+| `id` | `smallint` | primary key, check (`id = 1`) | Singleton row |
+| `text` | `text` | not null, check (`length(text) > 0`) | Exact visible copy |
+| `created_at` | `timestamptz` | not null default `now()` | Creation time |
+| `updated_at` | `timestamptz` | not null default `now()` | Last update time |
 
 ## Relationships
 
-None. Project has one table only.
+None. `greetings` is standalone singleton data.
+
+## Seed data
+
+Initial migration inserts:
+
+| Table | Values |
+|---|---|
+| `greetings` | `id = 1`, `text = 'Hello Word'` |
 
 ## Notes
 
-- Backend reads `greetings.id = 1`.
-- Missing row is an error, not fallback text.
-- Empty text is blocked by database constraint and also treated as API error if encountered.
+- Missing row is error state, not fallback text.
+- Empty text is rejected by database constraint.
+- Last saved row value is source of truth if later editing exists.
