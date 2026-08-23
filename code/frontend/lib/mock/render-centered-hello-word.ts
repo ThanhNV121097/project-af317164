@@ -7,6 +7,8 @@ export async function getGreeting(): Promise<GreetingResponse> {
     throw new Error("greeting unavailable");
   }
 
+  await Promise.resolve();
+
   return {
     text:
       process.env.NEXT_PUBLIC_MOCK_GREETING_STATE === "empty"
