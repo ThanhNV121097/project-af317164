@@ -7,7 +7,7 @@ export async function getGreeting(): Promise<GreetingResponse> {
     throw new Error("greeting unavailable");
   }
 
-  await Promise.resolve();
+  await new Promise((resolve) => setTimeout(resolve, 0));
 
   return {
     text:
