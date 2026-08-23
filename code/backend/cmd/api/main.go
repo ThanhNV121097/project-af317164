@@ -14,11 +14,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ThanhNV121097/project-af317164/backend/migrations"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
-
-//go:embed migrations/*.sql
-var migrationFiles embed.FS
 
 type app struct {
 	db    *sql.DB
