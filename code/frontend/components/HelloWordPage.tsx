@@ -33,12 +33,18 @@ export default function HelloWordPage() {
   }, []);
 
   return (
-    <main className={styles.page} aria-busy={state.status === "loading"} role={state.status === "error" ? "alert" : undefined}>
+    <main
+      className={styles.page}
+      aria-busy={state.status === "loading"}
+      role={state.status === "error" ? "alert" : undefined}
+    >
       {state.status === "loaded" ? (
         <h1 className={styles.heading}>{state.text}</h1>
-      ) : state.status === "error" ? (
-        <p className={styles.message}>Error</p>
-      ) : null}
+      ) : (
+        <p className={styles.message} aria-live="polite">
+          {state.status === "loading" ? "Loading" : "Error"}
+        </p>
+      )}
     </main>
   );
 }
