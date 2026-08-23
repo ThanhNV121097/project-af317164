@@ -111,7 +111,7 @@ func runMigrations(ctx context.Context, db *sql.DB) error {
 		return fmt.Errorf("create schema_migrations: %w", err)
 	}
 
-	entries, err := fs.ReadDir(migrations.Files, "migrations")
+	entries, err := fs.ReadDir(migrations.Files, ".")
 	if err != nil {
 		return fmt.Errorf("read migrations: %w", err)
 	}
