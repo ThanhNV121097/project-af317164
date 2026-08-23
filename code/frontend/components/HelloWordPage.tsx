@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import styles from "./HelloWordPage.module.css";
-import { getGreeting } from "../lib/mock/render-centered-hello-word";
+import { getGreeting } from "../../lib/mock/render-centered-hello-word";
 
 type ViewState =
   | { status: "loading" }
