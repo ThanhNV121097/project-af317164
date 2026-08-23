@@ -8,7 +8,6 @@ import { getGreeting } from "../../lib/mock/render-centered-hello-word";
 type ViewState =
   | { status: "loading" }
   | { status: "loaded"; text: string }
-  | { status: "empty" }
   | { status: "error" };
 
 export default function HelloWordPage() {
@@ -22,7 +21,7 @@ export default function HelloWordPage() {
         if (!active) return;
 
         const text = response.text.trim();
-        setState(text ? { status: "loaded", text } : { status: "empty" });
+        setState(text ? { status: "loaded", text } : { status: "error" });
       })
       .catch(() => {
         if (active) setState({ status: "error" });
@@ -41,14 +40,6 @@ export default function HelloWordPage() {
     return (
       <main className={styles.page} role="alert">
         <p className={styles.message}>Error</p>
-      </main>
-    );
-  }
-
-  if (state.status === "empty") {
-    return (
-      <main className={styles.page} role="status">
-        <p className={styles.message}>Empty</p>
       </main>
     );
   }
