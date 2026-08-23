@@ -135,7 +135,7 @@ func runMigrations(ctx context.Context, db *sql.DB) error {
 			continue
 		}
 
-		sqlBytes, err := migrationFiles.ReadFile("migrations/" + name)
+		sqlBytes, err := migrations.Files.ReadFile("migrations/" + name)
 		if err != nil {
 			return fmt.Errorf("read migration %s: %w", name, err)
 		}
