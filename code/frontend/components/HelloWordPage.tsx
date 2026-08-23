@@ -22,7 +22,7 @@ export default function HelloWordPage() {
         if (!active) return;
 
         const text = response.text.trim();
-        setState(text ? { status: "loaded", text } : { status: "error" });
+        setState(text ? { status: "loaded", text } : { status: "empty" });
       })
       .catch(() => {
         if (active) setState({ status: "error" });
@@ -41,6 +41,14 @@ export default function HelloWordPage() {
     return (
       <main className={styles.page} role="alert">
         <p className={styles.message}>Error</p>
+      </main>
+    );
+  }
+
+  if (state.status === "empty") {
+    return (
+      <main className={styles.page} role="status">
+        <p className={styles.message}>Empty</p>
       </main>
     );
   }
