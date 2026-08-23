@@ -1,50 +1,63 @@
-# Services — hello-word-6
+# Service Contracts — hello-word-6
 
-## API conventions
+## Scope
 
-- Backend serves versioned paths without `/api` prefix.
-- All JSON responses use `application/json`.
-- Public endpoints require no authentication.
+Backend exposes health and greeting read endpoint. Paths intentionally omit `/api`; deployment proxy strips `/api` before backend receives request.
+
+## Common response headers
+
+| Header | Value |
+|---|---|
+| `Content-Type` | `application/json; charset=utf-8` |
 
 ## Error envelope
+
+All non-2xx JSON errors use same shape:
 
 ```json
 {
   "error": {
-    "code": "greeting_unavailable",
-    "message": "Greeting is unavailable."
+    "code": "string",
+    "message": "string"
   }
 }
 ```
 
-| Field | Type | Rule |
-|---|---|---|
-| `error.code` | string | Stable snake_case machine code. |
-| `error.message` | string | Safe user-facing message, no internal details. |
+Rules:
+
+- `code` is stable machine-readable snake_case.
+- `message` is safe for public display/logging.
+- Backend does not expose database driver errors.
 
 ## Endpoints
 
 ### `GET /healthz`
 
-Readiness check. Returns 200 only after migrations succeeded and database `SELECT 1` works.
+Readiness probe. Returns success only when migrations have succeeded and database answers `SELECT 1`.
 
-Request: none.
+Request body: none.
 
-Success response `200 text/plain`:
+Success response: `200 OK`
 
-```text
-ok
+```json
+{
+  "status": "ok"
+}
 ```
 
-Failure response: non-200 plain text or unavailable connection. Compose treats as unhealthy.
+Errors:
+
+| Status | Code | Meaning |
+|---:|---|---|
+| `503` | `database_unavailable` | Database cannot be reached or migrations are not complete |
 
 ### `GET /v1/greeting`
 
-Returns stored greeting for home page.
+Returns singleton greeting for home page.
 
-Request: none.
+Request body: none.
 
-Success response `200`:
+Success response: `200 OK`
 
 ```json
 {
@@ -52,21 +65,14 @@ Success response `200`:
 }
 ```
 
-| Field | Type | Rule |
-|---|---|---|
-| `text` | string | Exact stored value from PostgreSQL row `greetings.id = 1`. |
+Errors:
 
-Error responses:
-
-| Status | `error.code` | Cause |
+| Status | Code | Meaning |
 |---:|---|---|
-| `404` | `greeting_not_found` | Greeting row does not exist. |
-| `422` | `greeting_empty` | Greeting text is empty. |
-| `503` | `greeting_unavailable` | Database cannot be reached or queried. |
-| `500` | `internal_error` | Unexpected server failure. |
+| `404` | `greeting_not_found` | Singleton greeting row does not exist |
+| `500` | `internal_error` | Greeting cannot be read |
+| `503` | `database_unavailable` | Database is unavailable |
 
-## Frontend integration
+## Frontend use
 
-Frontend reads `NEXT_PUBLIC_API_URL` and calls `${NEXT_PUBLIC_API_URL}/v1/greeting`.
-
-If API call fails, frontend renders error state and must not display hardcoded `Hello Word` fallback.
+Frontend calls `${NEXT_PUBLIC_API_URL}/v1/greeting`. If request fails or response is non-2xx, frontend shows error state and does not render fallback greeting text.
