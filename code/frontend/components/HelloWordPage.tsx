@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import styles from "./HelloWordPage.module.css";
-import { getGreeting } from "../../lib/mock/render-centered-hello-word";
+import { getGreeting } from "../lib/mock/render-centered-hello-word";
 
 type ViewState =
   | { status: "loading" }
@@ -32,21 +32,13 @@ export default function HelloWordPage() {
     };
   }, []);
 
-  if (state.status === "loading") {
-    return <main className={styles.page} aria-busy="true" />;
-  }
-
-  if (state.status === "error") {
-    return (
-      <main className={styles.page} role="alert">
-        <p className={styles.message}>Error</p>
-      </main>
-    );
-  }
-
   return (
-    <main className={styles.page}>
-      <h1 className={styles.heading}>{state.text}</h1>
+    <main className={styles.page} aria-busy={state.status === "loading"} role={state.status === "error" ? "alert" : undefined}>
+      {state.status === "loaded" ? (
+        <h1 className={styles.heading}>{state.text}</h1>
+      ) : state.status === "error" ? (
+        <p className={styles.message}>Error</p>
+      ) : null}
     </main>
   );
 }
