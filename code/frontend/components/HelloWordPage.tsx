@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 
 import styles from "./HelloWordPage.module.css";
-import { getGreeting } from "../lib/mock/render-centered-hello-word";
+
+type GreetingResponse = {
+  text?: string;
+};
 
 type ViewState =
   | { status: "loading" }
@@ -15,12 +18,19 @@ export default function HelloWordPage() {
 
   useEffect(() => {
     let active = true;
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
-    getGreeting()
+    fetch(`${apiBase}/v1/greeting`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("bad response");
+        }
+        return response.json() as Promise<GreetingResponse>;
+      })
       .then((response) => {
         if (!active) return;
 
-        const text = response.text.trim();
+        const text = response.text?.trim() ?? "";
         setState(text ? { status: "loaded", text } : { status: "error" });
       })
       .catch(() => {
