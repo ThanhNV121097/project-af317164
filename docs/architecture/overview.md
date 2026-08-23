@@ -2,172 +2,153 @@
 
 ## Scope
 
-`hello-word-6` is a minimal full-stack proof: one PostgreSQL row stores the greeting, Go API reads it, Next.js page renders it centered on plain white background.
+`hello-word-6` is one full-stack proof page. Frontend renders one centered value. Backend reads one row from PostgreSQL. Database stores greeting text.
 
-No auth, editing, admin UI, analytics, animation, or extra pages.
-
-## Project shape
-
-| Part | Included | Reason |
-|---|---:|---|
-| Frontend | Yes | Guest needs one browser page. |
-| Backend | Yes | Frontend must not read database directly. |
-| Database | Yes | Greeting must come from PostgreSQL, not hardcoded frontend copy. |
+No auth, editing, analytics, animation, theming, queues, workers, or admin UI.
 
 ## Stack
 
-| Layer | Choice | Notes |
-|---|---|---|
-| Frontend | Next.js 15 App Router, TypeScript, Tailwind v3 | `code/frontend/`; standalone output for container runtime. |
-| Backend | Go 1.22+ HTTP server | `code/backend/`; one main package at `cmd/api`. |
-| Database | PostgreSQL 16 | Local compose service; deployed runtime injects `DATABASE_URL`. |
-| Containers | Existing Dockerfiles + `docker-compose.yml` | Build contexts stay `code/backend` and `code/frontend`. |
-| CI | `.github/workflows/ci.yml` | Runs Go build/vet/test, npm lint/build/test, CSS token checks. |
+| Layer | Choice | Version | Reason |
+|---|---|---:|---|
+| Frontend | Next.js App Router + TypeScript | 15.x | Default stack, server rendering, small UI |
+| Styling | Tailwind CSS + CSS tokens | v3 | Default styling, CI token checks |
+| Backend | Go HTTP server | 1.22 | Default stack, small binary, simple API |
+| Database | PostgreSQL | 16 | Required source of truth for greeting row |
+| Local run | `docker compose up` | Compose v2 | Boots DB, backend, frontend together |
+| CI | `.github/workflows/ci.yml` | existing | Runs build, vet, tests, lint, token checks |
 
-## Runtime data flow
+## Runtime shape
 
-1. Browser requests Next.js home page.
-2. Home feature component calls backend API under `/v1/greeting`.
-3. Go backend validates readiness, queries PostgreSQL `greetings` single row.
-4. Backend returns JSON success or shared JSON error envelope.
-5. Frontend renders exact stored text or error state.
+```text
+browser
+  │ GET /
+  ▼
+Next.js frontend
+  │ GET {NEXT_PUBLIC_API_URL}/v1/greeting
+  ▼
+Go backend
+  │ SELECT text FROM greetings WHERE id = 1
+  ▼
+PostgreSQL
+```
 
 ## Repository layout
 
 ```text
 code/
   backend/
-    cmd/api/main.go
-    internal/migrations/
-    migrations/
-      202502140001_create_greetings.up.sql
-      202502140001_create_greetings.down.sql
-    .env.example
-    .gitignore
-    Dockerfile
+    cmd/api/main.go              # one main package, server entrypoint
+    internal/migrate/            # embedded SQL migration runner
+    migrations/                  # timestamped .up.sql/.down.sql files
     go.mod
-  frontend/
-    app/
-      globals.css
-      layout.tsx
-      page.tsx
     .env.example
-    .eslintrc.json
-    .gitignore
     Dockerfile
-    next.config.js
+  frontend/
+    app/layout.tsx               # root layout only
+    app/page.tsx                 # composition root only
+    app/globals.css              # finished shared tokens and base styles
     package.json
-    postcss.config.js
+    next.config.js
     tailwind.config.ts
+    postcss.config.js
     tsconfig.json
+    .env.example
+    Dockerfile
 docs/
   architecture/
-    erd.md
     overview.md
+    erd.md
     services.md
-  home/SRS.md
 ```
 
 ## Backend conventions
 
-- Module path: `github.com/ThanhNV121097/project-af317164/backend`.
-- Entry point: `code/backend/cmd/api/main.go` only.
-- Migrations live in `code/backend/migrations/` and are embedded by package beside that directory.
-- Server reads `DATABASE_URL`, `PORT`, and optional `APP_PORT` from environment.
-- Startup order: connect database, apply pending migrations, verify `SELECT 1`, then serve.
-- `/healthz` returns 200 only after migrations succeeded and database ping works.
+- One Go module at `code/backend`.
+- Exactly one `main` package: `code/backend/cmd/api`.
+- Standard `net/http` router only until need proves otherwise.
+- All routes mount without `/api` prefix. Public contract paths start with `/v1/...`.
+- Startup order:
+  1. Read `DATABASE_URL`.
+  2. Open PostgreSQL connection.
+  3. Apply all pending migrations from embedded `migrations/` files.
+  4. Verify database with `SELECT 1`.
+  5. Listen on `PORT`, then `APP_PORT`, then `8080`.
+- `/healthz` returns 200 only after migrations and database ping succeed.
 - SQL uses parameterized queries.
-- API routes use `/v1/...`; no `/api` prefix inside backend.
+- External errors return generic JSON error envelope.
 
 ## Frontend conventions
 
-- App Router files live under `code/frontend/app/`.
-- `app/page.tsx` is composition root only. Story components add one import and one JSX element.
-- Server Components stay default. Client Components must start with literal first line `"use client"` before hooks, events, or browser APIs.
-- Components use `export default function ComponentName()`.
-- Shared visual tokens live only in `app/globals.css`. Story CSS modules may use tokens but must not define shared tokens.
-- No hardcoded colors or large px lengths in CSS modules; CI enforces token use.
+- Next.js App Router files live under `code/frontend/app`.
+- `app/page.tsx` stays server component and composition root.
+- Story components use `export default function ComponentName()`.
+- Components using hooks, events, or browser APIs start with first line `"use client"`.
+- Shared tokens and base styles live only in `app/globals.css`.
+- Story CSS modules may use only tokens already defined in `globals.css`; no token fallbacks.
+- Frontend reads only `NEXT_PUBLIC_API_URL` for backend origin.
 
-## Naming conventions
+## Data conventions
 
-| Thing | Convention | Example |
-|---|---|---|
-| Routes | Versioned REST path | `/v1/greeting` |
-| JSON fields | lower camelCase | `text` |
-| Tables | plural snake_case | `greetings` |
-| Columns | snake_case | `created_at` |
-| Components | PascalCase default export | `GreetingDisplay` |
-| Story mock files | kebab-case | `render-centered-hello-word.ts` |
+- PostgreSQL owns greeting text.
+- `greetings.id = 1` is canonical singleton row.
+- Migrations are timestamped and applied in filename order.
+- Applied versions are stored in `schema_migrations`.
+- Re-running migrations is no-op.
 
 ## Environment variables
 
-### Root compose `.env`
+### Root compose
 
-| Key | Used by | Required | Purpose |
-|---|---|---:|---|
-| `POSTGRES_USER` | compose db/backend | No | Local database user override. |
-| `POSTGRES_PASSWORD` | compose db/backend | No | Local database password override. |
-| `POSTGRES_DB` | compose db/backend | No | Local database name override. |
-| `BACKEND_PORT` | compose | No | Host port for backend. |
-| `FRONTEND_PORT` | compose | No | Host port for frontend. |
-| `NEXT_PUBLIC_API_URL` | frontend build | No | Browser-facing backend base URL. |
+| Key | Used by | Purpose |
+|---|---|---|
+| `POSTGRES_USER` | db/backend | Local database user |
+| `POSTGRES_PASSWORD` | db/backend | Local database password |
+| `POSTGRES_DB` | db/backend | Local database name |
+| `BACKEND_PORT` | compose | Host port for backend |
+| `FRONTEND_PORT` | compose | Host port for frontend |
+| `NEXT_PUBLIC_API_URL` | frontend | Browser-visible backend base URL |
 
 ### Backend
 
 | Key | Required | Purpose |
 |---|---:|---|
-| `DATABASE_URL` | Yes | PostgreSQL connection string. |
-| `PORT` | No | HTTP listen port; defaults through `APP_PORT`, then `8080`. |
-| `APP_PORT` | No | Secondary HTTP port fallback. |
+| `DATABASE_URL` | yes | PostgreSQL connection string |
+| `PORT` | runtime | HTTP listen port |
+| `APP_PORT` | fallback | HTTP listen port fallback |
 
 ### Frontend
 
 | Key | Required | Purpose |
 |---|---:|---|
-| `NEXT_PUBLIC_API_URL` | No | API base URL used by browser code. Local default `http://localhost:8080`. |
+| `NEXT_PUBLIC_API_URL` | yes | Backend base URL visible to browser |
 
-## Failure handling
-
-| Failure | Backend response | Frontend behavior |
-|---|---|---|
-| Database unavailable | `503` error envelope | Show error state, no fallback greeting. |
-| Greeting row missing | `404` error envelope | Show error state, no hardcoded greeting. |
-| Greeting text empty | `422` error envelope | Show error state. |
-| Unknown server fault | `500` error envelope | Show error state. |
-
-## Security
-
-- No secrets committed; `.env.example` contains key names and comments only.
-- `DATABASE_URL` comes from environment, never assembled from secrets in code.
-- Public endpoint returns only configured greeting text.
-- Database access uses `database/sql` with parameterized statements.
-
-## Observability
-
-- Backend logs startup, migration failures, and listen failures to stderr.
-- Health endpoint checks database each request.
-- No metrics stack; project scope is pipeline proof only.
-
-## How to run
+## Local run
 
 ```bash
 cp .env.example .env
+cp code/backend/.env.example code/backend/.env
+cp code/frontend/.env.example code/frontend/.env.local
 docker compose --profile local up --build
 ```
 
-Then open `http://localhost:3000`.
+Open frontend at `http://localhost:3000`. Backend health check: `http://localhost:8080/healthz`.
 
-Backend health: `http://localhost:8080/healthz`.
+## Checks
 
-## Local checks
+Backend:
 
 ```bash
 cd code/backend
+go mod download
 go build ./...
 go vet ./...
 go test ./...
+```
 
-cd ../frontend
+Frontend:
+
+```bash
+cd code/frontend
 npm ci
 npm run lint
 npm run build
@@ -178,15 +159,24 @@ npm test --if-present
 
 | Decision | Rejected alternative | Tradeoff |
 |---|---|---|
-| Fullstack shape | Static page with hardcoded text | Required DB/API proof, adds minimal runtime cost. |
-| Go backend with `database/sql` + pgx driver | ORM | One table and one read do not need ORM abstraction. |
-| Self-migrating backend | Separate migration job | Runtime starts with empty DB; self-migration removes deploy ordering gap. |
-| Versioned `/v1` routes | `/api` prefix | Deploy proxy strips `/api`; backend must serve unprefixed version route. |
-| Next.js Server Component composition root | Client root | Keeps browser JS minimal; feature component can opt into client only if needed. |
-| CSS tokens in `globals.css` | Per-component hardcoded values | CI catches token drift; story authors avoid shared CSS edits. |
+| Fullstack shape | Static hardcoded page | Required data source is PostgreSQL through API |
+| Go `net/http` server | Gin/Echo/Fiber | Less dependency surface; few endpoints need no framework |
+| PostgreSQL singleton row | Frontend constant or env var | Meets requirement that copy is stored data |
+| Self-migrating backend | Separate migration job | Runtime starts with empty DB; one binary guarantees schema exists |
+| JSON error envelope | Plain text errors | Consistent frontend handling; tiny extra code |
+| Tailwind v3 + CSS tokens | Component hardcoded CSS | CI can enforce design values |
+| `NEXT_PUBLIC_API_URL` | Relative-only fetch | Local browser must reach backend host port; deploy may set `/api` |
 
-## Risks and unknowns
+## Risks and constraints
 
-- Exact frontend error copy is not specified; use minimal non-greeting error state until PM clarifies.
-- Migrations are enough for one table now; if concurrent deploys appear, add advisory lock around migration runner.
-- No caching needed; add only if API latency becomes measured issue.
+| Risk | Handling |
+|---|---|
+| Empty database on first boot | Backend applies embedded migrations before health turns green |
+| Backend marked healthy without DB | `/healthz` runs database ping after migration success |
+| Token drift in story CSS | CI checks CSS modules for hardcoded values and undefined tokens |
+| `/api` route mismatch | Contracts and backend use `/v1/...`; deploy proxy owns `/api` stripping |
+| Overbuilt feature work in scaffold | Scaffold stops at health and blank composition shell; feature story mounts UI later |
+
+## Unknowns
+
+- Exact error copy for unavailable greeting is product-open. Until decided, frontend story should show minimal error state without fallback greeting.
