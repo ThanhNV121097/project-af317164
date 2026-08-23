@@ -1,0 +1,18 @@
+.page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.heading,
+.message {
+  margin: var(--space-0);
+  color: var(--color-text);
+  font-family: var(--font-heading);
+  font-size: var(--text-3xl-size);
+  font-weight: var(--text-3xl-weight);
+  line-height: var(--text-3xl-line-height);
+  text-align: center;
+}
